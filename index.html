@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>لعبة غدير - البطل كاريزما المطورة</title>
+    <title>لعبة كاريزما</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
         body {
@@ -12,26 +12,25 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start;
             height: 100vh;
             overflow: hidden;
             touch-action: none;
         }
         #game-ui {
-            margin: 4px 0;
+            margin: 6px 0;
             display: flex;
-            gap: 6px;
-            font-size: 0.7rem;
+            gap: 8px;
+            font-size: 0.75rem;
             font-weight: bold;
             background: #1e1e1e;
-            padding: 5px 8px;
+            padding: 6px 10px;
             border-radius: 8px;
             border: 1px solid #444;
         }
         canvas {
             background-color: #1a1614;
             border: 2px solid #d32f2f;
-            width: 96vw;
+            width: 95vw;
             max-width: 380px;
             height: 270px;
             border-radius: 6px;
@@ -43,13 +42,13 @@
             max-width: 400px;
             padding: 10px;
             background: #1e1e1e;
-            margin-top: 6px;
+            margin-top: 8px;
             border-top: 1px solid #444;
             align-items: center;
         }
         #joystick-container {
-            width: 100px;
-            height: 100px;
+            width: 90px;
+            height: 90px;
             background: rgba(255, 255, 255, 0.1);
             border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
@@ -60,36 +59,34 @@
             touch-action: none;
         }
         #joystick-stick {
-            width: 40px;
-            height: 40px;
+            width: 35px;
+            height: 35px;
             background: #ff9800;
             border-radius: 50%;
             position: absolute;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
         .action-pad {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 8px;
             align-items: center;
         }
         #shoot-btn {
-            width: 75px;
-            height: 75px;
+            width: 70px;
+            height: 70px;
             background-color: #f44336;
             border-radius: 50%;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             font-weight: bold;
             border: none;
             color: white;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
         #shoot-btn:active { background-color: #d32f2f; transform: scale(0.95); }
         #weapon-btn {
             background-color: #9c27b0;
             color: white;
             border: none;
-            padding: 5px 10px;
+            padding: 6px 12px;
             border-radius: 6px;
             font-size: 0.75rem;
             font-weight: bold;
@@ -104,7 +101,6 @@
         <div>أعلى: <span id="highscore" style="color: #ffeb3b;">0</span></div>
         <div>صحة: <span id="health" style="color: #f44336;">150</span></div>
         <div>مرحلة: <span id="wave" style="color: #ff9800;">1</span></div>
-        <div>السلاح: <span id="weapon-name" style="color: #ab47bc;">بندقية قتالية</span></div>
     </div>
 
     <canvas id="gameCanvas" width="400" height="280"></canvas>
@@ -114,416 +110,203 @@
             <div id="joystick-stick"></div>
         </div>
         <div class="action-pad">
-            <button id="weapon-btn">تغيير السلاح 🔄</button>
-            <button id="shoot-btn">إطلاق النار 🎯</button>
+            <button id="weapon-btn">السلاح: <span id="weapon-name">عادي</span> 🔄</button>
+            <button id="shoot-btn">إطلاق 🎯</button>
         </div>
     </div>
 
     <script>
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const audioCtx = new AudioContext();
-
-        function playSound(type) {
-            if (audioCtx.state === 'suspended') { audioCtx.resume(); }
-            const osc = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            osc.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            let now = audioCtx.currentTime;
-
-            if (type === 'pistol') {
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(300, now);
-                osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
-                gainNode.gain.setValueAtTime(0.3, now);
-                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.15);
-                osc.start(now); osc.stop(now + 0.15);
-            } else if (type === 'smg') {
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(450, now);
-                osc.frequency.exponentialRampToValueAtTime(80, now + 0.08);
-                gainNode.gain.setValueAtTime(0.2, now);
-                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.08);
-                osc.start(now); osc.stop(now + 0.08);
-            } else if (type === 'rocket') {
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(150, now);
-                osc.frequency.exponentialRampToValueAtTime(30, now + 0.3);
-                gainNode.gain.setValueAtTime(0.4, now);
-                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.3);
-                osc.start(now); osc.stop(now + 0.3);
-            } else if (type === 'explosion') {
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(100, now);
-                osc.frequency.linearRampToValueAtTime(20, now + 0.4);
-                gainNode.gain.setValueAtTime(0.5, now);
-                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.4);
-                osc.start(now); osc.stop(now + 0.4);
-            } else if (type === 'powerup') {
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(300, now);
-                osc.frequency.exponentialRampToValueAtTime(800, now + 0.2);
-                gainNode.gain.setValueAtTime(0.3, now);
-                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.2);
-                osc.start(now); osc.stop(now + 0.2);
-            }
-        }
-
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const scoreEl = document.getElementById('score');
-        const highscoreEl = document.getElementById('highscore');
-        const healthEl = document.getElementById('health');
-        const waveEl = document.getElementById('wave');
-        const weaponNameEl = document.getElementById('weapon-name');
 
         let score = 0;
         let highscore = localStorage.getItem('charisma_highscore') || 0;
-        highscoreEl.innerText = highscore;
+        document.getElementById('highscore').innerText = highscore;
 
         let health = 150;
         let wave = 1;
-        let enemiesKilledInWave = 0;
+        let enemiesKilled = 0;
         let gameOver = false;
-
-        // متغيرات اهتزاز الشاشة
-        let screenShakeTime = 0;
-        let screenShakeIntensity = 0;
-
-        function triggerShake(duration, intensity) {
-            screenShakeTime = duration;
-            screenShakeIntensity = intensity;
-        }
+        let screenShake = 0;
 
         const weapons = [
-            { name: "بندقية قتالية", color: "#ffeb3b", speed: 10, radius: 4, damage: 1, type: "bullet", sound: "pistol" },
-            { name: "رشاش سريع ⚡", color: "#00bcd4", speed: 14, radius: 3, damage: 1, type: "bullet", sound: "smg" },
-            { name: "قاذف مدمر 🔥", color: "#ff5722", speed: 7, radius: 10, damage: 3, type: "rocket", sound: "rocket" }
+            { name: "عادي", color: "#ffeb3b", speed: 9, radius: 4, damage: 1 },
+            { name: "سريع ⚡", color: "#00bcd4", speed: 13, radius: 3, damage: 1 },
+            { name: "مدمر 🔥", color: "#ff5722", speed: 6, radius: 8, damage: 3 }
         ];
-        let currentWeaponIndex = 0;
+        let currentWeapon = 0;
 
         const player = {
-            x: canvas.width / 2,
-            y: canvas.height / 2,
-            radius: 18,
-            color: '#1565c0',
-            faceColor: '#ffcc80',
-            speed: 3.8,
-            angle: 0
+            x: 200, y: 140, radius: 16, color: '#1565c0', speed: 3.5, angle: 0
         };
 
         const bullets = [];
         const enemies = [];
-        const bloodSplatters = [];
-        const explosions = [];
-        const powerups = []; // صناديق الدعم
+        const powerups = [];
 
-        const ruins = [
-            { x: 50, y: 40, w: 70, h: 40 },
-            { x: 280, y: 50, w: 80, h: 50 },
-            { x: 60, y: 200, w: 90, h: 45 },
-            { x: 250, y: 190, w: 75, h: 55 },
-            { x: 180, y: 110, w: 50, h: 50 }
-        ];
-
+        // تحكم الجويستيك
         const joystickContainer = document.getElementById('joystick-container');
         const joystickStick = document.getElementById('joystick-stick');
         let moveVector = { x: 0, y: 0 };
-        let isJoystickActive = false;
 
-        function handleJoystickMove(touchX, touchY) {
+        function handleMove(touchX, touchY) {
             const rect = joystickContainer.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            let deltaX = touchX - centerX;
-            let deltaY = touchY - centerY;
-            let distance = Math.hypot(deltaX, deltaY);
-            let maxRadius = rect.width / 2;
+            let dx = touchX - (rect.left + rect.width / 2);
+            let dy = touchY - (rect.top + rect.height / 2);
+            let dist = Math.hypot(dx, dy);
+            let maxR = rect.width / 2;
 
-            if (distance > maxRadius) {
-                deltaX = (deltaX / distance) * maxRadius;
-                deltaY = (deltaY / distance) * maxRadius;
-            }
-
-            joystickStick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-            moveVector.x = deltaX / maxRadius;
-            moveVector.y = deltaY / maxRadius;
-
-            if (distance > 5) {
-                player.angle = Math.atan2(deltaY, deltaX);
-            }
+            if (dist > maxR) { dx = (dx / dist) * maxR; dy = (dy / dist) * maxR; }
+            joystickStick.style.transform = `translate(${dx}px, ${dy}px)`;
+            moveVector = { x: dx / maxR, y: dy / maxR };
+            if (dist > 5) player.angle = Math.atan2(dy, dx);
         }
 
-        function resetJoystick() {
-            joystickStick.style.transform = 'translate(0px, 0px)';
+        joystickContainer.addEventListener('touchstart', (e) => handleMove(e.touches[0].clientX, e.touches[0].clientY));
+        joystickContainer.addEventListener('touchmove', (e) => handleMove(e.touches[0].clientX, e.touches[0].clientY));
+        joystickContainer.addEventListener('touchend', () => {
+            joystickStick.style.transform = 'translate(0,0)';
             moveVector = { x: 0, y: 0 };
-            isJoystickActive = false;
-        }
-
-        joystickContainer.addEventListener('touchstart', (e) => { e.preventDefault(); isJoystickActive = true; handleJoystickMove(e.touches[0].clientX, e.touches[0].clientY); });
-        joystickContainer.addEventListener('touchmove', (e) => { e.preventDefault(); if (isJoystickActive) handleJoystickMove(e.touches[0].clientX, e.touches[0].clientY); });
-        joystickContainer.addEventListener('touchend', (e) => { e.preventDefault(); resetJoystick(); });
-
-        document.getElementById('weapon-btn').addEventListener('click', () => {
-            currentWeaponIndex = (currentWeaponIndex + 1) % weapons.length;
-            weaponNameEl.innerText = weapons[currentWeaponIndex].name;
         });
 
-        const shootBtn = document.getElementById('shoot-btn');
-        shootBtn.addEventListener('touchstart', (e) => { e.preventDefault(); shoot(); });
-        shootBtn.addEventListener('mousedown', () => shoot());
+        document.getElementById('weapon-btn').addEventListener('click', () => {
+            currentWeapon = (currentWeapon + 1) % weapons.length;
+            document.getElementById('weapon-name').innerText = weapons[currentWeapon].name;
+        });
+
+        document.getElementById('shoot-btn').addEventListener('click', shoot);
+        document.getElementById('shoot-btn').addEventListener('touchstart', (e) => { e.preventDefault(); shoot(); });
 
         function shoot() {
             if (gameOver) return;
-            const w = weapons[currentWeaponIndex];
-            playSound(w.sound);
-
+            const w = weapons[currentWeapon];
             bullets.push({
-                x: player.x + Math.cos(player.angle) * 20,
-                y: player.y + Math.sin(player.angle) * 20,
+                x: player.x, y: player.y,
                 dx: Math.cos(player.angle) * w.speed,
                 dy: Math.sin(player.angle) * w.speed,
-                radius: w.radius,
-                color: w.color,
-                damage: w.damage,
-                type: w.type
-            });
-        }
-
-        function createExplosion(x, y, maxRadius = 35) {
-            playSound('explosion');
-            triggerShake(15, 4); // اهتزاز الشاشة عند الانفجار
-            explosions.push({
-                x: x,
-                y: y,
-                radius: 5,
-                maxRadius: maxRadius,
-                alpha: 1.0
-            });
-        }
-
-        function spawnPowerup(x, y) {
-            powerups.push({
-                x: x,
-                y: y,
-                radius: 12,
-                type: Math.random() < 0.5 ? 'heal' : 'shield'
+                radius: w.radius, color: w.color, damage: w.damage
             });
         }
 
         function spawnEnemy() {
             if (gameOver) return;
-            let isBoss = (enemiesKilledInWave > 0 && enemiesKilledInWave % 5 === 0);
-            
-            let x, y;
-            if (Math.random() < 0.5) {
-                x = Math.random() < 0.5 ? -30 : canvas.width + 30;
-                y = Math.random() * canvas.height;
-            } else {
-                x = Math.random() * canvas.width;
-                y = Math.random() < 0.5 ? -30 : canvas.height + 30;
-            }
-
+            let isBoss = enemiesKilled > 0 && enemiesKilled % 5 === 0;
             enemies.push({
-                x: x,
-                y: y,
-                radius: isBoss ? 28 : 13,
+                x: Math.random() < 0.5 ? -20 : canvas.width + 20,
+                y: Math.random() * canvas.height,
+                radius: isBoss ? 24 : 12,
                 color: isBoss ? '#616161' : '#b71c1c',
-                speed: isBoss ? 0.8 + (wave * 0.1) : 1.4 + (wave * 0.15),
-                hp: isBoss ? 6 + wave : 1,
-                maxHp: isBoss ? 6 + wave : 1,
+                speed: isBoss ? 1 : 1.5 + (wave * 0.1),
+                hp: isBoss ? 5 + wave : 1,
                 isBoss: isBoss
             });
-
-            let nextTime = Math.max(600, 1900 - (wave * 150));
-            setTimeout(spawnEnemy, nextTime);
+            setTimeout(spawnEnemy, Math.max(700, 1800 - wave * 100));
         }
 
         function update() {
             if (gameOver) return;
 
-            if (screenShakeTime > 0) {
-                screenShakeTime--;
-            }
+            if (screenShake > 0) screenShake--;
 
-            if (moveVector.x !== 0 || moveVector.y !== 0) {
-                player.x += moveVector.x * player.speed;
-                player.y += moveVector.y * player.speed;
-            }
+            player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x + moveVector.x * player.speed));
+            player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y + moveVector.y * player.speed));
 
-            if (player.x < player.radius) player.x = player.radius;
-            if (player.x > canvas.width - player.radius) player.x = canvas.width - player.radius;
-            if (player.y < player.radius) player.y = player.radius;
-            if (player.y > canvas.height - player.radius) player.y = canvas.height - player.radius;
+            bullets.forEach((b, bi) => {
+                b.x += b.dx; b.y += b.dy;
+                if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(bi, 1);
+            });
 
-            // التحقق من التقاط صناديق الدعم
-            powerups.forEach((p, pIndex) => {
-                let dist = Math.hypot(player.x - p.x, player.y - p.y);
-                if (dist < player.radius + p.radius) {
-                    playSound('powerup');
-                    if (p.type === 'heal') {
-                        health = Math.min(150, health + 50);
-                    } else {
-                        health = Math.min(150, health + 30); // درع يعزز الصحة
-                    }
-                    healthEl.innerText = health;
-                    powerups.splice(pIndex, 1);
+            powerups.forEach((p, pi) => {
+                if (Math.hypot(player.x - p.x, player.y - p.y) < player.radius + p.radius) {
+                    health = Math.min(150, health + 40);
+                    document.getElementById('health').innerText = health;
+                    powerups.splice(pi, 1);
                 }
             });
 
-            bullets.forEach((b, index) => {
-                b.x += b.dx;
-                b.y += b.dy;
-                if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
-                    bullets.splice(index, 1);
-                }
-            });
+            enemies.forEach((e, ei) => {
+                let angle = Math.atan2(player.y - e.y, player.x - e.x);
+                e.x += Math.cos(angle) * e.speed;
+                e.y += Math.sin(angle) * e.speed;
 
-            explosions.forEach((ex, index) => {
-                ex.radius += 2.5;
-                ex.alpha -= 0.05;
-                if (ex.alpha <= 0) {
-                    explosions.splice(index, 1);
-                }
-            });
-
-            enemies.forEach((e, eIndex) => {
-                const angleToPlayer = Math.atan2(player.y - e.y, player.x - e.x);
-                e.x += Math.cos(angleToPlayer) * e.speed;
-                e.y += Math.sin(angleToPlayer) * e.speed;
-
-                const distPlayer = Math.hypot(player.x - e.x, player.y - e.y);
-                if (distPlayer < player.radius + e.radius) {
+                if (Math.hypot(player.x - e.x, player.y - e.y) < player.radius + e.radius) {
                     health -= e.isBoss ? 25 : 10;
-                    healthEl.innerText = Math.max(0, health);
-                    triggerShake(10, 3);
-                    createExplosion(e.x, e.y, 25);
-                    enemies.splice(eIndex, 1);
+                    document.getElementById('health').innerText = Math.max(0, health);
+                    screenShake = 10;
+                    enemies.splice(ei, 1);
                     if (health <= 0) {
                         gameOver = true;
-                        if (score > highscore) {
-                            localStorage.setItem('charisma_highscore', score);
-                        }
-                        alert('انتهت المعركة يا كاريزما! مجموع نقاطك: ' + score);
+                        if (score > highscore) localStorage.setItem('charisma_highscore', score);
+                        alert('انتهت اللعبة يا غدير! نقاطك: ' + score);
                         location.reload();
                     }
                 }
 
-                bullets.forEach((b, bIndex) => {
-                    const distBullet = Math.hypot(b.x - e.x, b.y - e.y);
-                    if (distBullet < b.radius + e.radius) {
+                bullets.forEach((b, bi) => {
+                    if (Math.hypot(b.x - e.x, b.y - e.y) < b.radius + e.radius) {
                         e.hp -= b.damage;
-                        bloodSplatters.push({ x: e.x + (Math.random()*10 - 5), y: e.y + (Math.random()*10 - 5), alpha: 1.0 });
-
-                        if (b.type === "rocket") {
-                            createExplosion(b.x, b.y, 40);
-                        }
-
-                        bullets.splice(bIndex, 1);
-                        
+                        bullets.splice(bi, 1);
                         if (e.hp <= 0) {
-                            createExplosion(e.x, e.y, e.isBoss ? 50 : 30);
-                            
-                            // فرصة ظهور صندوق دعم عند القتل (30% فرصة)
-                            if (Math.random() < 0.3) {
-                                spawnPowerup(e.x, e.y);
-                            }
-
-                            enemies.splice(eIndex, 1);
-                            score += e.isBoss ? 50 : 10;
-                            scoreEl.innerText = score;
-                            enemiesKilledInWave++;
-
-                            if (enemiesKilledInWave >= 7) {
+                            if (Math.random() < 0.25) powerups.push({ x: e.x, y: e.y, radius: 10 });
+                            enemies.splice(ei, 1);
+                            score += e.isBoss ? 40 : 10;
+                            enemiesKilled++;
+                            document.getElementById('score').innerText = score;
+                            if (enemiesKilled >= 8) {
                                 wave++;
-                                enemiesKilledInWave = 0;
-                                waveEl.innerText = wave;
-                                alert('المرحلة رقم ' + wave + ' بدأت يا بطل كاريزما! 🔥');
+                                enemiesKilled = 0;
+                                document.getElementById('wave').innerText = wave;
                             }
                         }
                     }
                 });
             });
-
-            bloodSplatters.forEach((bs, index) => {
-                bs.alpha -= 0.003;
-                if (bs.alpha <= 0) bloodSplatters.splice(index, 1);
-            });
         }
 
         function draw() {
             ctx.save();
-            // تطبيق اهتزاز الشاشة
-            if (screenShakeTime > 0) {
-                let offsetX = (Math.random() - 0.5) * screenShakeIntensity;
-                let offsetY = (Math.random() - 0.5) * screenShakeIntensity;
-                ctx.translate(offsetX, offsetY);
-            }
+            if (screenShake > 0) ctx.translate((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6);
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            ctx.fillStyle = '#26211e';
-            ruins.forEach(r => {
-                ctx.fillRect(r.x, r.y, r.w, r.h);
-                ctx.strokeStyle = '#3d3430';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(r.x, r.y, r.w, r.h);
-                ctx.beginPath();
-                ctx.moveTo(r.x + 10, r.y);
-                ctx.lineTo(r.x + 20, r.y + r.h);
-                ctx.stroke();
-            });
-
-            // رسم صناديق الدعم
+            // صناديق الصحة
             powerups.forEach(p => {
-                ctx.fillStyle = p.type === 'heal' ? '#4caf50' : '#03a9f4';
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#fff';
-                ctx.font = '10px sans-serif';
-                ctx.fillText(p.type === 'heal' ? '✚' : '🛡', p.x - 4, p.y + 4);
+                ctx.fillStyle = '#4caf50';
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.fillText('✚', p.x - 4, p.y + 4);
             });
 
-            bloodSplatters.forEach(bs => {
-                ctx.fillStyle = `rgba(180, 0, 0, ${bs.alpha})`;
-                ctx.beginPath();
-                ctx.arc(bs.x, bs.y, 5, 0, Math.PI * 2);
-                ctx.fill();
-            });
-
+            // الطلقات
             bullets.forEach(b => {
                 ctx.fillStyle = b.color;
-                ctx.beginPath();
-                if (b.type === "rocket") {
-                    ctx.rect(b.x - 4, b.y - 4, 8, 8);
-                } else {
-                    ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
-                }
-                ctx.fill();
+                ctx.beginPath(); ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2); ctx.fill();
             });
 
+            // الأعداء
             enemies.forEach(e => {
                 ctx.fillStyle = e.color;
-                ctx.beginPath();
-                ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
-                ctx.fill();
-
-                if (e.isBoss) {
-                    ctx.fillStyle = '#000';
-                    ctx.fillRect(e.x - 18, e.y - e.radius - 10, 36, 4);
-                    ctx.fillStyle = '#4caf50';
-                    ctx.fillRect(e.x - 18, e.y - e.radius - 10, (e.hp / e.maxHp) * 36, 4);
-                }
+                ctx.beginPath(); ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2); ctx.fill();
             });
 
-            explosions.forEach(ex => {
-                ctx.save();
-                ctx.globalAlpha = ex.alpha;
-                ctx.fillStyle = '#ff5722';
-                ctx.beginPath();
-                ctx.arc(ex.x, ex.y, ex.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#ffeb3b';
-                ctx.beginPath();
-    
+            // البطل كاريزما
+            ctx.fillStyle = player.color;
+            ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill();
+            
+            // وجه البطل
+            ctx.fillStyle = '#ffcc80';
+            ctx.beginPath(); ctx.arc(player.x, player.y, player.radius * 0.6, 0, Math.PI * 2); ctx.fill();
+
+            ctx.restore();
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        spawnEnemy();
+        loop();
+    </script>
+</body>
+</html>
