@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mini Counter - الكابتن كاريزما</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body {
+            background-color: #121212;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: none;
+        }
+        #game-ui {
+            margin-top: 5px;
+            display: flex;
+            gap: 8px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            background: #1e1e1e;
+            padding: 5px 8px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        canvas {
+            background-color: #2b2b2b;
+            border: 2px solid #ff9800;
+            width: 100%;
+            max-width: 400px;
+            height: 340px;
+        }
+        #controls {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            padding: 10px 15px;
+            background: #1e1e1e;
+            height: 140px;
+            align-items: center;
+        }
+        .d-pad {
+            display: grid;
+            grid-template-columns: 45px 45px 45px;
+            grid-template-rows: 45px 45px;
+            gap: 4px;
+        }
+        .ctrl-btn {
+            background-color: #333;
+            color: white;
+            border: 1px solid #555;
+            font-size: 1.1rem;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+        .ctrl-btn:active { background-color: #ff9800; }
+        
+        #up { grid-column: 2; grid-row: 1; }
+        #left { grid-column: 1; grid-row: 2; }
+        #right { grid-column: 3; grid-row: 2; }
+        #down { grid-column: 2; grid-row: 2; }
+
+        .action-pad {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+        #shoot-btn {
+            width: 80px;
+            height: 80px;
+            background-color: #f44336;
+            border-radius: 50%;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        #shoot-btn:active { background-color: #d32f2f; transform: scale(0.95); }
+        
+        #weapon-btn {
+            background-color: #9c27b0;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-ui">
+        <div>بطلنا: <span style="color: #ffb74d;">كاريزما العملاق</span></div>
+        <div>نقاط: <span id="score" style="color: #4caf50;">0</span></div>
+        <div>صحة: <span id="health" style="color: #f44336;">150</span></div>
+        <div>مرحلة: <span id="wave" style="color: #ff9800;">1</span></div>
+        <div>السلاح: <span id="weapon-name" style="color: #ab47bc;">مسدس عادي</span></div>
+    </div>
+
+    <canvas id="gameCanvas" width="400" height="340"></canvas>
+
+    <div id="controls">
+        <div class="d-pad">
+            <button class="ctrl-btn" id="up">⬆️</button>
+            <button class="ctrl-btn" id="left">⬅️</button>
+            <button class="ctrl-btn" id="down">⬇️</button>
+            <button class="ctrl-btn" id="right">➡️</button>
+        </div>
+        <div class="action-pad">
+            <button id="weapon-btn">تبديل السلاح 🔄</button>
+            <button id="shoot-btn">إطلاق 🎯</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const healthEl = document.getElementById('health');
+        const waveEl = document.getElementById('wave');
+        const weaponNameEl = document.getElementById('weapon-name');
+
+        let score = 0;
+        let health = 150;
+        let wave = 1;
+        let enemiesKilledInWave = 0;
+        let gameOver = false;
+
+        const weapons = [
+            { name: "مسدس عادي", color: "#ffeb3b", speed: 8, radius: 4, damage: 1 },
+            { name: "رشاش سريع ⚡", color: "#00bcd4", speed: 12, radius: 3, damage: 1 },
+            { name: "قاذف مدمر 🔥", color: "#ff5722", speed: 6, radius: 9, damage: 3 }
+        ];
+        let currentWeaponIndex = 0;
+
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: 22,
+            color: '#8D5524',
+            muscleColor: '#6d421b',
+            speed: 3.2,
+            dirX: 1,
+            dirY: 0
+        };
+
+        const bullets = [];
+        const enemies = [];
+        const moveState = { up: false, down: false, left: false, right: false };
+
+        function bindTouch(id, stateKey) {
+            const btn = document.getElementById(id);
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); moveState[stateKey] = true; });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); moveState[stateKey] = false; });
+            btn.addEventListener('mousedown', () => moveState[stateKey] = true);
+            btn.addEventListener('mouseup', () => moveState[stateKey] = false);
+        }
+
+        bindTouch('up', 'up');
+        bindTouch('down', 'down');
+        bindTouch('left', 'left');
+        bindTouch('right', 'right');
+
+        document.getElementById('weapon-btn').addEventListener('click', () => {
+            currentWeaponIndex = (currentWeaponIndex + 1) % weapons.length;
+            weaponNameEl.innerText = weapons[currentWeaponIndex].name;
+        });
+
+        const shootBtn = document.getElementById('shoot-btn');
+        shootBtn.addEventListener('touchstart', (e) => { e.preventDefault(); shoot(); });
+        shootBtn.addEventListener('mousedown', () => shoot());
+
+        function shoot() {
+            if (gameOver) return;
+            const w = weapons[currentWeaponIndex];
+            bullets.push({
+                x: player.x,
+                y: player.y,
+                dx: player.dirX * w.speed,
+                dy: player.dirY * w.speed,
+                radius: w.radius,
+                color: w.color,
+                damage: w.damage
+            });
+        }
+
+        function spawnEnemy() {
+            if (gameOver) return;
+            let isBoss = (enemiesKilledInWave > 0 && enemiesKilledInWave % 5 === 0);
+            
+            let x, y;
+            if (Math.random() < 0.5) {
+                x = Math.random() < 0.5 ? -30 : canvas.width + 30;
+                y = Math.random() * canvas.height;
+            } else {
+                x = Math.random() * canvas.width;
+                y = Math.random() < 0.5 ? -30 : canvas.height + 30;
+            }
+
+            enemies.push({
+                x: x,
+                y: y,
+                radius: isBoss ? 30 : 14,
+                color: isBoss ? '#9c27b0' : '#f44336',
+                speed: isBoss ? 0.9 + (wave * 0.1) : 1.5 + (wave * 0.15),
+                hp: isBoss ? 6 + wave : 1,
+                maxHp: isBoss ? 6 + wave : 1,
+                isBoss: isBoss
+            });
+
+            let nextTime = Math.max(600, 2000 - (wave * 150));
+            setTimeout(spawnEnemy, nextTime);
+        }
+
+        function update() {
+            if (gameOver) return;
+
+            if (moveState.up && player.y > player.radius) { player.y -= player.speed; player.dirX = 0; player.dirY = -1; }
+            if (moveState.down && player.y < canvas.height - player.radius) { player.y += player.speed; player.dirX = 0; player.dirY = 1; }
+            if (moveState.left && player.x > player.radius) { player.x -= player.speed; player.dirX = -1; player.dirY = 0; }
+            if (moveState.right && player.x < canvas.width - player.radius) { player.x += player.speed; player.dirX = 1; player.dirY = 0; }
+
+            bullets.forEach((b, index) => {
+                b.x += b.dx;
+                b.y += b.dy;
+                if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
+                    bullets.splice(index, 1);
+                }
+            });
+
+            enemies.forEach((e, eIndex) => {
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                e.x += Math.cos(angle) * e.speed;
+                e.y += Math.sin(angle) * e.speed;
+
+                const distPlayer = Math.hypot(player.x - e.x, player.y - e.y);
+                if (distPlayer < player.radius + e.radius) {
+                    health -= e.isBoss ? 30 : 15;
+                    healthEl.innerText = Math.max(0, health);
+                    enemies.splice(eIndex, 1);
+                    if (health <= 0) {
+                        gameOver = true;
+                        alert('لقد سقط البطل كاريزما في المرحلة ' + wave + '! مجموع النقاط: ' + score);
+                        location.reload();
+                    }
+                }
+
+                bullets.forEach((b, bIndex) => {
+                    const distBullet = Math.hypot(b.x - e.x, b.y - e.y);
+                    if (distBullet < b.radius + e.radius) {
+                        e.hp -= b.damage;
+                        bullets.splice(bIndex, 1);
+                        
+                        if (e.hp <= 0) {
+                            enemies.splice(eIndex, 1);
+                            score += e.isBoss ? 50 : 10;
+                            scoreEl.innerText = score;
+                            enemiesKilledInWave++;
+
+                            if (enemiesKilledInWave >= 8) {
+                                wave++;
+                                enemiesKilledInWave = 0;
+                                waveEl.innerText = wave;
+                                alert('كاريزما يدخل المرحلة رقم ' + wave + ' بقوة أكبر! 🚀');
+                            }
+                        }
+                    }
+                });
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            bullets.forEach(b => {
+                ctx.fillStyle = b.color;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            enemies.forEach(e => {
+                ctx.fillStyle = e.color;
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (e.isBoss) {
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(e.x - 20, e.y - e.radius - 12, 40, 5);
+                    ctx.fillStyle = '#4caf50';
+                    ctx.fillRect(e.x - 20, e.y - e.radius - 12, (e.hp / e.maxHp) * 40, 5);
+                }
+            });
+
+            ctx.fillStyle = player.muscleColor;
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.radius + 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = player.color;
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#3e220b';
+            ctx.beginPath();
+            ctx.arc(player.x - 5, player.y - 4, 3, 0, Math.PI * 2);
+            ctx.arc(player.x + 5, player.y - 4, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        spawnEnemy();
+        gameLoop();
+    </script>
+</body>
+  </html>
+  
