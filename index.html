@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>لعبة غدير - الكابتن والأسلحة</title>
+    <title>لعبة غدير - المدينة المدمرة مع الأصوات</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
         body {
@@ -29,8 +29,8 @@
             border: 1px solid #444;
         }
         canvas {
-            background-color: #1a1a1a;
-            border: 2px solid #ff9800;
+            background-color: #1a1614;
+            border: 2px solid #d32f2f;
             width: 96vw;
             max-width: 380px;
             height: 270px;
@@ -41,62 +41,57 @@
             justify-content: space-around;
             width: 100%;
             max-width: 400px;
-            padding: 8px 10px;
+            padding: 10px;
             background: #1e1e1e;
             margin-top: 6px;
             border-top: 1px solid #444;
             align-items: center;
         }
-        .d-pad {
-            display: grid;
-            grid-template-columns: 45px 45px 45px;
-            grid-template-rows: 45px 45px;
-            gap: 3px;
-        }
-        .ctrl-btn {
-            background-color: #333;
-            color: white;
-            border: 1px solid #555;
-            font-size: 1.1rem;
-            border-radius: 6px;
+        #joystick-container {
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
-            user-select: none;
+            touch-action: none;
         }
-        .ctrl-btn:active { background-color: #ff9800; }
-        
-        #up { grid-column: 2; grid-row: 1; }
-        #left { grid-column: 1; grid-row: 2; }
-        #right { grid-column: 3; grid-row: 2; }
-        #down { grid-column: 2; grid-row: 2; }
-
+        #joystick-stick {
+            width: 40px;
+            height: 40px;
+            background: #ff9800;
+            border-radius: 50%;
+            position: absolute;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
         .action-pad {
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 6px;
             align-items: center;
         }
         #shoot-btn {
-            width: 70px;
-            height: 70px;
+            width: 75px;
+            height: 75px;
             background-color: #f44336;
             border-radius: 50%;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             font-weight: bold;
             border: none;
             color: white;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
         #shoot-btn:active { background-color: #d32f2f; transform: scale(0.95); }
-        
         #weapon-btn {
             background-color: #9c27b0;
             color: white;
             border: none;
-            padding: 5px 8px;
+            padding: 5px 10px;
             border-radius: 6px;
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             font-weight: bold;
         }
     </style>
@@ -104,7 +99,7 @@
 <body>
 
     <div id="game-ui">
-        <div>البطل: <span style="color: #ffb74d;">غدير 💀</span></div>
+        <div>البطل: <span style="color: #ffb74d;">شاب مقاتل 💀</span></div>
         <div>نقاط: <span id="score" style="color: #4caf50;">0</span></div>
         <div>صحة: <span id="health" style="color: #f44336;">150</span></div>
         <div>مرحلة: <span id="wave" style="color: #ff9800;">1</span></div>
@@ -114,11 +109,8 @@
     <canvas id="gameCanvas" width="400" height="280"></canvas>
 
     <div id="controls">
-        <div class="d-pad">
-            <button class="ctrl-btn" id="up">⬆️</button>
-            <button class="ctrl-btn" id="left">⬅️</button>
-            <button class="ctrl-btn" id="down">⬇️</button>
-            <button class="ctrl-btn" id="right">➡️</button>
+        <div id="joystick-container">
+            <div id="joystick-stick"></div>
         </div>
         <div class="action-pad">
             <button id="weapon-btn">تغيير السلاح 🔄</button>
@@ -127,6 +119,60 @@
     </div>
 
     <script>
+        // إعداد نظام الأصوات التفاعلي (Web Audio API)
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            let now = audioCtx.currentTime;
+
+            if (type === 'pistol') {
+                // صوت طلقة البندقية
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            } else if (type === 'smg') {
+                // صوت الرش السريع
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(450, now);
+                osc.frequency.exponentialRampToValueAtTime(80, now + 0.08);
+                gainNode.gain.setValueAtTime(0.2, now);
+                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.08);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            } else if (type === 'rocket') {
+                // صوت إطلاق قاذف المدمر
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(30, now + 0.3);
+                gainNode.gain.setValueAtTime(0.4, now);
+                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            } else if (type === 'explosion') {
+                // صوت التفجير الضخم
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, now);
+                osc.frequency.linearRampToValueAtTime(20, now + 0.4);
+                gainNode.gain.setValueAtTime(0.5, now);
+                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.4);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            }
+        }
+
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const scoreEl = document.getElementById('score');
@@ -141,39 +187,73 @@
         let gameOver = false;
 
         const weapons = [
-            { name: "بندقية قتالية", color: "#ffeb3b", speed: 9, radius: 4, damage: 1 },
-            { name: "رشاش سريع ⚡", color: "#00bcd4", speed: 13, radius: 3, damage: 1 },
-            { name: "قاذف مدمر 🔥", color: "#ff5722", speed: 7, radius: 8, damage: 3 }
+            { name: "بندقية قتالية", color: "#ffeb3b", speed: 10, radius: 4, damage: 1, type: "bullet", sound: "pistol" },
+            { name: "رشاش سريع ⚡", color: "#00bcd4", speed: 14, radius: 3, damage: 1, type: "bullet", sound: "smg" },
+            { name: "قاذف مدمر 🔥", color: "#ff5722", speed: 7, radius: 10, damage: 3, type: "rocket", sound: "rocket" }
         ];
         let currentWeaponIndex = 0;
 
-        // البطل (غدير)
         const player = {
             x: canvas.width / 2,
             y: canvas.height / 2,
-            radius: 20,
-            color: '#3f51b5', // لون ملابسك كبطل
-            faceColor: '#ffcc80', // لون وجهك
-            speed: 3.5,
-            angle: 0 // زاوية اتجاه السلاح والبطل
+            radius: 18,
+            color: '#1565c0',
+            faceColor: '#ffcc80',
+            speed: 3.8,
+            angle: 0
         };
 
         const bullets = [];
         const enemies = [];
-        const moveState = { up: false, down: false, left: false, right: false };
+        const bloodSplatters = [];
+        const explosions = [];
 
-        function bindTouch(id, stateKey) {
-            const btn = document.getElementById(id);
-            btn.addEventListener('touchstart', (e) => { e.preventDefault(); moveState[stateKey] = true; });
-            btn.addEventListener('touchend', (e) => { e.preventDefault(); moveState[stateKey] = false; });
-            btn.addEventListener('mousedown', () => moveState[stateKey] = true);
-            btn.addEventListener('mouseup', () => moveState[stateKey] = false);
+        const ruins = [
+            { x: 50, y: 40, w: 70, h: 40 },
+            { x: 280, y: 50, w: 80, h: 50 },
+            { x: 60, y: 200, w: 90, h: 45 },
+            { x: 250, y: 190, w: 75, h: 55 },
+            { x: 180, y: 110, w: 50, h: 50 }
+        ];
+
+        const joystickContainer = document.getElementById('joystick-container');
+        const joystickStick = document.getElementById('joystick-stick');
+        let moveVector = { x: 0, y: 0 };
+        let isJoystickActive = false;
+
+        function handleJoystickMove(touchX, touchY) {
+            const rect = joystickContainer.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            let deltaX = touchX - centerX;
+            let deltaY = touchY - centerY;
+            let distance = Math.hypot(deltaX, deltaY);
+            let maxRadius = rect.width / 2;
+
+            if (distance > maxRadius) {
+                deltaX = (deltaX / distance) * maxRadius;
+                deltaY = (deltaY / distance) * maxRadius;
+            }
+
+            joystickStick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+            moveVector.x = deltaX / maxRadius;
+            moveVector.y = deltaY / maxRadius;
+
+            if (distance > 5) {
+                player.angle = Math.atan2(deltaY, deltaX);
+            }
         }
 
-        bindTouch('up', 'up');
-        bindTouch('down', 'down');
-        bindTouch('left', 'left');
-        bindTouch('right', 'right');
+        function resetJoystick() {
+            joystickStick.style.transform = 'translate(0px, 0px)';
+            moveVector = { x: 0, y: 0 };
+            isJoystickActive = false;
+        }
+
+        joystickContainer.addEventListener('touchstart', (e) => { e.preventDefault(); isJoystickActive = true; handleJoystickMove(e.touches[0].clientX, e.touches[0].clientY); });
+        joystickContainer.addEventListener('touchmove', (e) => { e.preventDefault(); if (isJoystickActive) handleJoystickMove(e.touches[0].clientX, e.touches[0].clientY); });
+        joystickContainer.addEventListener('touchend', (e) => { e.preventDefault(); resetJoystick(); });
 
         document.getElementById('weapon-btn').addEventListener('click', () => {
             currentWeaponIndex = (currentWeaponIndex + 1) % weapons.length;
@@ -187,7 +267,10 @@
         function shoot() {
             if (gameOver) return;
             const w = weapons[currentWeaponIndex];
-            // إطلاق الطلقة باتجاه الزاوية التي يوجهها البطل
+            
+            // تشغيل صوت السلاح المناسب
+            playSound(w.sound);
+
             bullets.push({
                 x: player.x + Math.cos(player.angle) * 20,
                 y: player.y + Math.sin(player.angle) * 20,
@@ -195,7 +278,19 @@
                 dy: Math.sin(player.angle) * w.speed,
                 radius: w.radius,
                 color: w.color,
-                damage: w.damage
+                damage: w.damage,
+                type: w.type
+            });
+        }
+
+        function createExplosion(x, y, maxRadius = 35) {
+            playSound('explosion'); // تشغيل صوت التفجير
+            explosions.push({
+                x: x,
+                y: y,
+                radius: 5,
+                maxRadius: maxRadius,
+                alpha: 1.0
             });
         }
 
@@ -216,10 +311,10 @@
                 x: x,
                 y: y,
                 radius: isBoss ? 28 : 13,
-                color: isBoss ? '#9c27b0' : '#e91e63',
+                color: isBoss ? '#616161' : '#b71c1c',
                 speed: isBoss ? 0.8 + (wave * 0.1) : 1.4 + (wave * 0.15),
-                hp: isBoss ? 5 + wave : 1,
-                maxHp: isBoss ? 5 + wave : 1,
+                hp: isBoss ? 6 + wave : 1,
+                maxHp: isBoss ? 6 + wave : 1,
                 isBoss: isBoss
             });
 
@@ -230,32 +325,16 @@
         function update() {
             if (gameOver) return;
 
-            // حركة البطل والتحكم بالاتجاهات
-            let moveX = 0;
-            let moveY = 0;
-            if (moveState.up) { moveY = -1; player.angle = -Math.PI / 2; }
-            if (moveState.down) { moveY = 1; player.angle = Math.PI / 2; }
-            if (moveState.left) { moveX = -1; player.angle = Math.PI; }
-            if (moveState.right) { moveX = 1; player.angle = 0; }
-
-            // دعم الحركة القطرية (الزوايا)
-            if (moveState.up && moveState.right) player.angle = -Math.PI / 4;
-            if (moveState.up && moveState.left) player.angle = -3 * Math.PI / 4;
-            if (moveState.down && moveState.right) player.angle = Math.PI / 4;
-            if (moveState.down && moveState.left) player.angle = 3 * Math.PI / 4;
-
-            if (moveX !== 0 || moveY !== 0) {
-                player.x += moveX * player.speed;
-                player.y += moveY * player.speed;
+            if (moveVector.x !== 0 || moveVector.y !== 0) {
+                player.x += moveVector.x * player.speed;
+                player.y += moveVector.y * player.speed;
             }
 
-            // منع البطل من الخروج عن حدود الشاشة
             if (player.x < player.radius) player.x = player.radius;
             if (player.x > canvas.width - player.radius) player.x = canvas.width - player.radius;
             if (player.y < player.radius) player.y = player.radius;
             if (player.y > canvas.height - player.radius) player.y = canvas.height - player.radius;
 
-            // تحديث الطلقات
             bullets.forEach((b, index) => {
                 b.x += b.dx;
                 b.y += b.dy;
@@ -264,35 +343,48 @@
                 }
             });
 
-            // تحديث الأعداء
+            explosions.forEach((ex, index) => {
+                ex.radius += 2.5;
+                ex.alpha -= 0.05;
+                if (ex.alpha <= 0) {
+                    explosions.splice(index, 1);
+                }
+            });
+
             enemies.forEach((e, eIndex) => {
                 const angleToPlayer = Math.atan2(player.y - e.y, player.x - e.x);
                 e.x += Math.cos(angleToPlayer) * e.speed;
                 e.y += Math.sin(angleToPlayer) * e.speed;
 
-                // الاصطدام بالبطل (غدير)
                 const distPlayer = Math.hypot(player.x - e.x, player.y - e.y);
                 if (distPlayer < player.radius + e.radius) {
                     health -= e.isBoss ? 25 : 10;
                     healthEl.innerText = Math.max(0, health);
+                    createExplosion(e.x, e.y, 25);
                     enemies.splice(eIndex, 1);
                     if (health <= 0) {
                         gameOver = true;
-                        alert('لقد انتهت المعركة يا غدير! مجموع النقاط: ' + score);
+                        alert('انتهت المعركة يا غدير! مجموع نقاطك: ' + score);
                         location.reload();
                     }
                 }
 
-                // إصابة الأعداء بالرصاص
                 bullets.forEach((b, bIndex) => {
                     const distBullet = Math.hypot(b.x - e.x, b.y - e.y);
                     if (distBullet < b.radius + e.radius) {
                         e.hp -= b.damage;
+                        bloodSplatters.push({ x: e.x + (Math.random()*10 - 5), y: e.y + (Math.random()*10 - 5), alpha: 1.0 });
+
+                        if (b.type === "rocket") {
+                            createExplosion(b.x, b.y, 40);
+                        }
+
                         bullets.splice(bIndex, 1);
                         
                         if (e.hp <= 0) {
+                            createExplosion(e.x, e.y, e.isBoss ? 50 : 30);
                             enemies.splice(eIndex, 1);
-                            score += e.isBoss ? 40 : 10;
+                            score += e.isBoss ? 50 : 10;
                             scoreEl.innerText = score;
                             enemiesKilledInWave++;
 
@@ -300,26 +392,52 @@
                                 wave++;
                                 enemiesKilledInWave = 0;
                                 waveEl.innerText = wave;
-                                alert('دخلتِ يا غدير المرحلة رقم ' + wave + ' بقوة خارقة! 🚀');
+                                alert('المرحلة رقم ' + wave + ' بدأت يا بطل! 🔥');
                             }
                         }
                     }
                 });
+            });
+
+            bloodSplatters.forEach((bs, index) => {
+                bs.alpha -= 0.003;
+                if (bs.alpha <= 0) bloodSplatters.splice(index, 1);
             });
         }
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // رسم الطلقات
-            bullets.forEach(b => {
-                ctx.fillStyle = b.color;
+            ctx.fillStyle = '#26211e';
+            ruins.forEach(r => {
+                ctx.fillRect(r.x, r.y, r.w, r.h);
+                ctx.strokeStyle = '#3d3430';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(r.x, r.y, r.w, r.h);
                 ctx.beginPath();
-                ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                ctx.moveTo(r.x + 10, r.y);
+                ctx.lineTo(r.x + 20, r.y + r.h);
+                ctx.stroke();
+            });
+
+            bloodSplatters.forEach(bs => {
+                ctx.fillStyle = `rgba(180, 0, 0, ${bs.alpha})`;
+                ctx.beginPath();
+                ctx.arc(bs.x, bs.y, 5, 0, Math.PI * 2);
                 ctx.fill();
             });
 
-            // رسم الأعداء
+            bullets.forEach(b => {
+                ctx.fillStyle = b.color;
+                ctx.beginPath();
+                if (b.type === "rocket") {
+                    ctx.rect(b.x - 4, b.y - 4, 8, 8);
+                } else {
+                    ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                }
+                ctx.fill();
+            });
+
             enemies.forEach(e => {
                 ctx.fillStyle = e.color;
                 ctx.beginPath();
@@ -334,33 +452,41 @@
                 }
             });
 
-            // رسم البطلة (غدير) مع السلاح الممسوك باليد
+            explosions.forEach(ex => {
+                ctx.save();
+                ctx.globalAlpha = ex.alpha;
+                ctx.fillStyle = '#ff5722';
+                ctx.beginPath();
+                ctx.arc(ex.x, ex.y, ex.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ffeb3b';
+                ctx.beginPath();
+                ctx.arc(ex.x, ex.y, ex.radius * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
             ctx.save();
             ctx.translate(player.x, player.y);
             ctx.rotate(player.angle);
-
-            // رسم السلاح في اليد يمتد إلى الأمام
-            ctx.fillStyle = '#78909c';
-            ctx.fillRect(5, 6, 18, 5); // جسم السلاح
-
+            ctx.fillStyle = '#4e342e';
+            ctx.fillRect(4, 4, 16, 5);
             ctx.restore();
 
-            // رسم جسم البطل (دائرة رئيسية)
             ctx.fillStyle = player.color;
             ctx.beginPath();
             ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
             ctx.fill();
 
-            // رسم وجه البطل في المنتصف
             ctx.fillStyle = player.faceColor;
             ctx.beginPath();
             ctx.arc(player.x, player.y, player.radius * 0.55, 0, Math.PI * 2);
             ctx.fill();
 
-            // عيون البطل (غدير)
-            ctx.fillStyle = '#000';
-            ctx.fillRect(player.x - 4, player.y - 3, 3, 3);
-            ctx.fillRect(player.x + 2, player.y - 3, 3, 3);
+            ctx.fillStyle = '#37474f';
+            ctx.beginPath();
+            ctx.arc(player.x, player.y - 2, player.radius * 0.5, Math.PI, 0);
+            ctx.fill();
         }
 
         function gameLoop() {
@@ -373,5 +499,4 @@
         gameLoop();
     </script>
 </body>
-    </html>
-    
+</html>
